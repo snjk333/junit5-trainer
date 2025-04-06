@@ -1,13 +1,17 @@
 package com.dmdev.service;
 
 import com.dmdev.dao.UserDao;
+import com.dmdev.dto.CreateUserDto;
 import com.dmdev.dto.UserDto;
 import com.dmdev.entity.Gender;
 import com.dmdev.entity.Role;
 import com.dmdev.entity.User;
+import com.dmdev.exception.ValidationException;
 import com.dmdev.mapper.CreateUserMapper;
 import com.dmdev.mapper.UserMapper;
 import com.dmdev.validator.CreateUserValidator;
+import com.dmdev.validator.Error;
+import com.dmdev.validator.ValidationResult;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,8 +28,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
@@ -116,7 +119,48 @@ class UserServiceTest {
                 .build();
     }
 
+    @Test
+    void createSuccess(){
+        CreateUserDto dto = getCreateUserDto();
+        User user = getUser();
+        UserDto userDto = getUserDTO();
 
+        when(createUserValidator.validate(dto)).thenReturn(new ValidationResult());
+        when(createUserMapper.map(dto)).thenReturn(user);
+        when(userMapper.map(user)).thenReturn(userDto);
+
+        UserDto actualResult = userService.create(dto);
+
+        Assertions.assertThat(actualResult).isEqualTo(userDto);
+
+        verify(userDao).save(user);
+    }
+
+    @Test
+    void shouldThrowExeptionIfDtoInvalid(){
+
+        CreateUserDto dto = getCreateUserDto();
+        ValidationResult validationResultWithErrors = new ValidationResult();
+        validationResultWithErrors.add(Error.of("invalid_role", "message"));
+
+        doReturn(validationResultWithErrors).when(createUserValidator).validate(dto);
+
+        assertThrows(ValidationException.class, () -> userService.create(dto));
+        verifyNoInteractions(userMapper);
+        verifyNoInteractions(createUserMapper);
+        verifyNoInteractions(userDao);
+    }
+
+    private static CreateUserDto getCreateUserDto() {
+        return CreateUserDto.builder()
+                .name("Jon")
+                .email("jon@gmail.com")
+                .password("password")
+                .birthday("2000-03-25")
+                .role(Role.USER.name())
+                .gender(Gender.MALE.name())
+                .build();
+    }
 
 
 }
